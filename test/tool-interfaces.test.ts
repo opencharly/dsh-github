@@ -110,6 +110,35 @@ describe('gh_repo tool three interfaces', () => {
     }
   })
 
+  it('every repo-targeting tool takes an explicit ownerRepo, with ONE shared description', async () => {
+    const { ctx, fiber } = await mountRuntime()
+    try {
+      const schemas = ctx.tools.schemas()
+      const propertiesOf = (name: string) =>
+        (schemas.find(entry => entry.name === name)?.parameters as { properties?: Record<string, { description?: string }> })?.properties ?? {}
+
+      // The repository-targeting set, measured: each of these resolves a repository, so a
+      // caller must be able to name it explicitly. `gh_search` / `gh_repo_search` take the
+      // repository in their QUERY and `review_post` takes a job id, so none of the three
+      // resolves a repository at all (opencharly/dsh-github#3).
+      const REPO_TARGETING = ['pr_create', 'pr_merge', 'pr_update', 'gh_review', 'gh_issue', 'issue_open', 'issue_comment', 'issue_close', 'gh_repo', 'gh_file', 'gh_checks']
+      for (const name of REPO_TARGETING) {
+        expect(propertiesOf(name).ownerRepo, `${name} declares ownerRepo`).toMatchObject({ description: expect.stringContaining('owner/repo') })
+      }
+
+      // ONE canonical description across them all: a second copy is a claim that can drift.
+      const texts = new Set(REPO_TARGETING.map(name => propertiesOf(name).ownerRepo?.description))
+      expect(texts.size).toBe(1)
+
+      for (const name of ['gh_search', 'gh_repo_search', 'review_post']) {
+        expect(Object.keys(propertiesOf(name)), `${name} resolves no repository`).not.toContain('ownerRepo')
+      }
+    } finally {
+      await fiber.dispose()
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('renders the error branch from its canonical value on a 404', async () => {
     const ctx = new Context()
     ctx.provide('systemPrompt', { tools: () => () => undefined, section: () => () => undefined } as never)

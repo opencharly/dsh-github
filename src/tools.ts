@@ -16,7 +16,7 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { GithubError } from './github.ts'
 import { readGitState } from './git.ts'
 import { analyzeDiff, formatPostBody, parseDiffStats, type Finding } from './review.ts'
-import { rateLimitValue, type GithubState, type RateLimitValue } from './state.ts'
+import { OWNER_REPO_DESCRIPTION, rateLimitValue, type GithubState, type RateLimitValue } from './state.ts'
 import {
   ghFileCall, ghFileResult, ghIssueCall, ghIssueResult, ghRepoCall, ghRepoResult,
   ghReviewCall, ghReviewResult, ghSearchCall, ghSearchResult,
@@ -162,7 +162,7 @@ export function prCreateTool(state: GithubState) {
       base: { type: 'string', description: 'Target branch. Defaults to the repository default branch.' },
       head: { type: 'string', description: 'Source branch. Defaults to the current git branch.' },
       draft: { type: 'boolean', description: 'Create as a draft PR.' },
-      ownerRepo: { type: 'string', description: 'Target repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
     },
     output: {
       schema: {
@@ -201,9 +201,9 @@ export function prCreateTool(state: GithubState) {
       let head = args.head?.trim()
       if (head === undefined || head.length === 0) {
         const git = await readGitState(state.workspaceDir, state.runGit, exec.signal, state.apiHost)
-        if (git.branch === null) return errorValue('no-head', 'could not determine the head branch', 'Pass `head` explicitly or run inside a git checkout.')
+        if (git.branch === null) return errorValue('no-head', 'could not determine the head branch', 'Pass `head` explicitly: the workspace directory has no branch to infer one from.')
         if (git.branch === 'HEAD') {
-          return errorValue('no-head', 'the checkout is in detached HEAD state', 'Check out a branch (or pass `head` explicitly) before creating a pull request.')
+          return errorValue('no-head', 'the workspace directory is in detached HEAD state', 'Pass `head` explicitly, or check out a branch there before creating a pull request.')
         }
         head = git.branch
       }
@@ -265,6 +265,7 @@ export function ghReviewTool(state: GithubState) {
       pr: { type: 'string', required: true, description: 'PR number, #number, owner/repo#number, or pull URL.' },
       fields: { type: 'array', items: { type: 'string', enum: [...REVIEW_FIELDS] }, description: 'Sections to fetch. Omit for all.' },
       maxDiffChars: { type: 'number', description: 'Cap for the diff text. Defaults to the plugin config.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
     },
     output: {
       schema: {
@@ -384,7 +385,7 @@ export function ghReviewTool(state: GithubState) {
     async execute(args, exec) {
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(args.ownerRepo, exec.signal)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
 
       const token = await state.resolveToken(exec.signal)
@@ -615,7 +616,7 @@ export function ghIssueTool(state: GithubState) {
       + 'and concurrency-safe. Use issue_open to create.',
     parameters: {
       action: { type: 'string', required: true, enum: ['list', 'get', 'comments'], description: 'Which read to perform.' },
-      ownerRepo: { type: 'string', description: 'Repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
       issueNumber: { type: 'integer', description: 'Issue number; required for get and comments.' },
       state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Filter for list. Defaults to open.' },
       limit: { type: 'integer', description: 'Max items for list. Defaults to 30, capped at 100.' },
@@ -746,7 +747,7 @@ export function issueOpenTool(state: GithubState) {
       title: { type: 'string', required: true, description: 'Issue title.' },
       body: { type: 'string', description: 'Issue body.' },
       labels: { type: 'array', items: { type: 'string' }, description: 'Label names to apply.' },
-      ownerRepo: { type: 'string', description: 'Target repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
     },
     output: {
       schema: {
@@ -805,7 +806,7 @@ export function issueCommentTool(state: GithubState) {
     name: 'issue_comment',
     description: 'Comment on a GitHub issue or pull request. Requires approval. Returns the comment URL.',
     parameters: {
-      ownerRepo: { type: 'string', description: 'Repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
       issueNumber: { type: 'integer', required: true, description: 'Issue or pull request number.' },
       body: { type: 'string', required: true, description: 'Comment body.' },
     },
@@ -861,7 +862,7 @@ export function issueCloseTool(state: GithubState) {
     description: 'Close a GitHub issue. Requires approval. Optionally records a close reason '
       + '("completed" or "not planned") for projects that surface it.',
     parameters: {
-      ownerRepo: { type: 'string', description: 'Repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
       issueNumber: { type: 'integer', required: true, description: 'Issue number.' },
       stateReason: { type: 'string', enum: ['completed', 'not_planned'], description: 'Close reason GitHub records. Omit for a plain close.' },
     },
@@ -1028,6 +1029,7 @@ export function prMergeTool(state: GithubState) {
       commitTitle: { type: 'string', description: 'Merge commit title (squash/rebase).' },
       commitMessage: { type: 'string', description: 'Merge commit message (squash/rebase).' },
       deleteBranch: { type: 'boolean', description: 'Delete the head branch after merging. Defaults to false.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
     },
     output: {
       schema: {
@@ -1061,7 +1063,7 @@ export function prMergeTool(state: GithubState) {
     async execute(args, exec) {
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(args.ownerRepo, exec.signal)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
 
       const token = await state.resolveToken(exec.signal)
@@ -1132,6 +1134,7 @@ export function prUpdateTool(state: GithubState) {
       body: { type: 'string', description: 'New PR description body.' },
       state: { type: 'string', enum: ['open', 'closed'], description: 'New PR state.' },
       base: { type: 'string', description: 'New target branch.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
     },
     output: {
       schema: {
@@ -1168,7 +1171,7 @@ export function prUpdateTool(state: GithubState) {
       }
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(args.ownerRepo, exec.signal)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
 
       const token = await state.resolveToken(exec.signal)
@@ -1210,7 +1213,7 @@ export function ghRepoTool(state: GithubState) {
     description: 'Read a GitHub repository\'s metadata: description, default branch, visibility, stars, forks, '
       + 'open issues, language, license, topics, and last update. Read-only and concurrency-safe.',
     parameters: {
-      ownerRepo: { type: 'string', description: 'Repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
     },
     output: {
       schema: {
@@ -1311,7 +1314,7 @@ export function ghFileTool(state: GithubState) {
       + 'branch). File contents are base64-decoded and capped; directories and oversized blobs are reported '
       + 'as structured errors. Read-only and concurrency-safe.',
     parameters: {
-      ownerRepo: { type: 'string', description: 'Repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
       path: { type: 'string', required: true, description: 'Repository file path, e.g. "README.md" or "src/index.ts".' },
       ref: { type: 'string', description: 'Branch, tag, or commit SHA. Defaults to the default branch.' },
       maxChars: { type: 'number', description: 'Cap for the file contents. Defaults to the plugin config.' },
@@ -1530,6 +1533,7 @@ export function ghChecksTool(state: GithubState) {
       + 'concurrency-safe. `pr` accepts a number, "#number", "owner/repo#number", or a pull-request URL.',
     parameters: {
       pr: { type: 'string', required: true, description: 'PR number, #number, owner/repo#number, or pull URL.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
     },
     output: {
       schema: {
@@ -1577,7 +1581,7 @@ export function ghChecksTool(state: GithubState) {
     async execute(args, exec) {
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(args.ownerRepo, exec.signal)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)

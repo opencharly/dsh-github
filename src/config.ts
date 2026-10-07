@@ -72,7 +72,12 @@ export interface Config {
   tokenSource: TokenSource
   /** Credentials-seam reference / environment-variable name for the token. */
   tokenRef: string
-  /** `owner/repo` used when a call does not name one and git has no origin. */
+  /**
+   * `owner/repo` used when a call does not name one. It is the only fallback that works
+   * everywhere: the last-resort git-origin probe needs a checkout cwd, which a `dsh web`
+   * deployment does not provide (see `resolveRepo` in state.ts and
+   * opencharly/dsh-github#3).
+   */
   defaultOwnerRepo?: string
   /** Whether `/pr create` may instruct the model to commit and push first. */
   autoCommit: boolean

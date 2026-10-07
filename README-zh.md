@@ -100,7 +100,7 @@ dsh --profile web --dump-config | grep -A3 'id: dsh-github'
 |---|---|---|
 | `tokenSource` | `auto` | `auto`（credentials → env → gh）或指定 `credentials` / `env` / `gh` |
 | `tokenRef` | `GITHUB_TOKEN` | credentials seam 引用名 / 环境变量名 |
-| `defaultOwnerRepo` | — | 调用未指定且 git 无 origin 时的兜底 `owner/repo` |
+| `defaultOwnerRepo` | — | 调用未指定时的兜底 `owner/repo`。在 `dsh web` 部署中 git origin 探测无法触发 — 参见 `workspaceDir` |
 | `autoCommit` | `false` | `/pr create` 是否允许指示模型先 commit+push |
 | `maxDiffChars` | `8000` | 审查读取 PR diff 的字符数上限 |
 | `renderExcerptChars` | `2000` | 渲染进工具输出的 diff 摘要字符数上限 |
@@ -118,7 +118,7 @@ dsh --profile web --dump-config | grep -A3 'id: dsh-github'
 | `requestTimeoutMs` | `30000` | 单次请求硬超时；超时即中止 fetch |
 | `apiBaseUrl` | `https://api.github.com` | GitHub REST 基地址（GitHub Enterprise） |
 | `allowedActions` | `['pr.create','pr.merge','pr.update','review.post','issue.create','issue.comment','issue.close','ci.run']` | 写动作白名单；名单外直接拒绝 |
-| `workspaceDir` | 进程 cwd | 只读 git 检查的工作目录 |
+| `workspaceDir` | 进程 cwd | 只读 git 检查的工作目录。在 `dsh web` 部署中它是**服务进程**的 cwd，而非会话的检出目录，因此 git 派生的事实（origin、分支）与最后的 `defaultOwnerRepo` 兜底都不可用 — 请在每次调用中传入 `ownerRepo`（opencharly/dsh-github#3） |
 | `ci` | `{ enabled: false, … }` | CI 集成段：轮询式审查机器人、状态检查门禁与一次性 `ci_run` 工具（其下为全部 `ci.*` 子键） |
 
 ## 工具与界面

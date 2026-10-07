@@ -16,7 +16,7 @@ import type {} from './message-source.ts'
 import { readGitState } from './git.ts'
 import { startReviewJob } from './jobs.ts'
 import type { CommandDefinition, CommandInvocation, CommandResult, CommandsService, GithubAgent, GithubJobId, JobRegistry } from './types.ts'
-import type { GithubState } from './state.ts'
+import { REPO_GUIDANCE, type GithubState } from './state.ts'
 
 const USAGE_PR = 'Usage: /pr create [title]'
 const USAGE_REVIEW = 'Usage: /review <pr> [--max-diff <n>] [--no-ci] [--no-comments] | /review stop <jobId> | /review post <jobId>'
@@ -57,7 +57,8 @@ async function createPrDraft(invocation: CommandInvocation, title: string, state
   if (git.branch === null) return { kind: 'error', text: 'no current branch found. Run /pr create inside a git checkout.' }
   const repo = git.repoFromRemote ?? state.config.defaultOwnerRepo
   if (repo === undefined) {
-    return { kind: 'error', text: 'could not determine the target repository. Set defaultOwnerRepo in cordis.yml or add a GitHub origin remote.' }
+    // One canonical remedy text, shared with every repo-targeting tool's error path.
+    return { kind: 'error', text: `could not determine the target repository. ${REPO_GUIDANCE}` }
   }
 
   const lines = [

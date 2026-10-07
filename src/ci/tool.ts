@@ -19,7 +19,7 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { errorValue } from '../tools.ts'
 import { ERROR_SCHEMA, RATE_LIMIT_SCHEMA } from '../tools.ts'
-import type { GithubState } from '../state.ts'
+import { OWNER_REPO_DESCRIPTION, type GithubState } from '../state.ts'
 import { ciRunCall, ciRunResult } from '../present.ts'
 import { identityMeta } from '../present.ts'
 import { runCiPipeline, type CiTask } from './pipeline.ts'
@@ -51,7 +51,7 @@ export function ciRunTool(state: GithubState) {
     parameters: {
       task: { type: 'string', required: true, enum: [...TASKS], description: 'Which CI pass to run.' },
       pr: { type: 'string', required: true, description: 'PR number, #number, owner/repo#number, or pull URL.' },
-      ownerRepo: { type: 'string', description: 'Repository as owner/repo. Defaults to configured or git origin.' },
+      ownerRepo: { type: 'string', description: OWNER_REPO_DESCRIPTION },
       maxDiffChars: { type: 'number', description: 'Cap for the diff text. Defaults to the plugin config.' },
       body: { type: 'string', description: 'Review-body override (publish task).' },
       findings: { type: 'array', items: FINDING_SCHEMA, description: 'Extra findings authored by you (publish task).' },
@@ -123,7 +123,7 @@ export function ciRunTool(state: GithubState) {
     async execute(args, exec) {
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(args.ownerRepo, exec.signal)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
 
       const findings = args.findings?.map(finding => ({
