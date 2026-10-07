@@ -98,7 +98,7 @@ dsh --profile web --dump-config | grep -A3 'id: dsh-github'
 |---|---|---|
 | `tokenSource` | `auto` | `auto` (credentials → env → gh) या `credentials` / `env` / `gh` में से कोई एक |
 | `tokenRef` | `GITHUB_TOKEN` | Credential-seam reference / environment-variable नाम |
-| `defaultOwnerRepo` | — | जब कोई call कोई नाम न दे और git के पास कोई origin न हो तो Fallback `owner/repo` |
+| `defaultOwnerRepo` | — | जब कोई call कोई नाम न दे तो Fallback `owner/repo`। `dsh web` deployment में git origin की जाँच चल ही नहीं सकती — देखें `workspaceDir` |
 | `autoCommit` | `false` | क्या `/pr create` model को पहले commit+push करने का निर्देश दे सकता है |
 | `maxDiffChars` | `8000` | reviews में पढ़े जाने वाले PR diffs की character सीमा |
 | `renderExcerptChars` | `2000` | tool output में render किए जाने वाले diff excerpt की character सीमा |
@@ -116,7 +116,7 @@ dsh --profile web --dump-config | grep -A3 'id: dsh-github'
 | `requestTimeoutMs` | `30000` | प्रति request का hard timeout; exceed होने पर fetch abort |
 | `apiBaseUrl` | `https://api.github.com` | GitHub REST base URL (GitHub Enterprise) |
 | `allowedActions` | `['pr.create','pr.merge','pr.update','review.post','issue.create','issue.comment','issue.close','ci.run']` | Write-action whitelist; बाकी सब approval से पहले अस्वीकार |
-| `workspaceDir` | process cwd | read-only git inspection के लिए working directory |
+| `workspaceDir` | process cwd | read-only git inspection के लिए working directory। `dsh web` deployment में यह SERVICE प्रोसेस का cwd होता है, session का checkout नहीं, इसलिए git से मिलने वाली जानकारी (origin, branch) और आख़िरी `defaultOwnerRepo` fallback वहाँ उपलब्ध नहीं हैं — हर call में `ownerRepo` दें (opencharly/dsh-github#3) |
 | `ci` | `{ enabled: false, … }` | CI integration section: polling review bot, status-check gate और one-shot `ci_run` tool (सभी `ci.*` keys इसी में हैं) |
 
 ## टूल्स और सतहें

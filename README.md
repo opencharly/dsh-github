@@ -101,7 +101,7 @@ All tunables are Schemastery `Config` fields (changeable from cordis.yml). An id
 |---|---|---|
 | `tokenSource` | `auto` | `auto` (credentials → env → gh) or one of `credentials` / `env` / `gh` |
 | `tokenRef` | `GITHUB_TOKEN` | Credential-seam reference / environment-variable name |
-| `defaultOwnerRepo` | — | Fallback `owner/repo` when a call names none and git has no origin |
+| `defaultOwnerRepo` | — | Fallback `owner/repo` when a call names none. In a `dsh web` deployment the git-origin probe cannot fire — see `workspaceDir` |
 | `autoCommit` | `false` | Whether `/pr create` may instruct the model to commit+push first |
 | `maxDiffChars` | `8000` | Character cap for PR diffs read into reviews |
 | `renderExcerptChars` | `2000` | Character cap for the diff excerpt rendered into tool output |
@@ -119,7 +119,7 @@ All tunables are Schemastery `Config` fields (changeable from cordis.yml). An id
 | `requestTimeoutMs` | `30000` | Hard per-request timeout; aborts the fetch when exceeded |
 | `apiBaseUrl` | `https://api.github.com` | GitHub REST base URL (GitHub Enterprise) |
 | `allowedActions` | `['pr.create','pr.merge','pr.update','review.post','issue.create','issue.comment','issue.close','ci.run']` | Write-action whitelist; anything else is denied before approval |
-| `workspaceDir` | process cwd | Working directory for read-only git inspection |
+| `workspaceDir` | process cwd | Working directory for read-only git inspection. A `dsh web` deployment sets it to the SERVICE process's cwd, not the session's checkout, so git-derived facts (origin, branch) and the last-resort `defaultOwnerRepo` probe are unavailable there — pass `ownerRepo` on every call (opencharly/dsh-github#3) |
 | `ci` | `{ enabled: false, … }` | CI integration section: polling review bot, status-check gate, and the one-shot `ci_run` tool (all `ci.*` keys live inside it) |
 
 ## Tools & surfaces

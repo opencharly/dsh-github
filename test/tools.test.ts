@@ -113,7 +113,9 @@ describe('pr_create tool', () => {
     const value = await services.tools.run('pr_create', { title: 'x' })
     expect(value).toMatchObject({ status: 'error', code: 'no-head' })
     expect((value as { message: string }).message).toContain('detached HEAD')
-    expect((value as { guidance: string }).guidance).toContain('Check out a branch')
+    const guidance = (value as { guidance: string }).guidance
+    expect(guidance).toMatch(/head` explicitly/i)
+    expect(guidance).toMatch(/check out a branch/i)
   })
 
   it('honors an explicit head/base/ownerRepo', async () => {
@@ -508,6 +510,34 @@ describe('pr_merge tool', () => {
     expect(body.merge_method).toBe('squash')
     expect(body.sha).toBe('abc123')
     expect(body.commit_title).toBe('feat: shiny (#7)')
+  })
+
+  it('targets an explicitly named ownerRepo, never the configured default', async () => {
+    // The configured default is deliberately a DIFFERENT repository. An explicit ownerRepo
+    // must win, or a MUTATING call silently targets the wrong repo — the hazard
+    // opencharly/dsh-github#3 names. Measured: before this change pr_merge declared no
+    // ownerRepo argument at all and resolved with `undefined`, so this test fails on the
+    // pre-change code by targeting `wrong/wrong`.
+    const hit: string[] = []
+    const services = makeServices()
+    services.credentials.values.set('GITHUB_TOKEN', TOKEN)
+    await loadPlugin(services, {
+      config: { defaultOwnerRepo: 'wrong/wrong' },
+      runGit: async () => { throw new Error('unused') },
+      fetchImpl: (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input : input.url)
+        hit.push(`${init?.method} ${url.pathname}`)
+        if (url.pathname === '/repos/o/r/pulls/7' && init?.method === 'GET') return jsonResponse(200, PULL_PAYLOAD)
+        if (url.pathname === '/repos/o/r/pulls/7/merge' && init?.method === 'PUT') {
+          return jsonResponse(200, { sha: 'merged-sha', merged: true, message: 'Pull Request successfully merged' })
+        }
+        return jsonResponse(404, { message: 'nope' })
+      }) as typeof fetch,
+    })
+    const value = await services.tools.run('pr_merge', { pr: '7', ownerRepo: 'o/r' })
+    expect(value).toMatchObject({ status: 'merged', url: 'https://github.com/o/r/pull/7' })
+    expect(hit).toContain('PUT /repos/o/r/pulls/7/merge')
+    expect(hit.some(call => call.includes('wrong/wrong'))).toBe(false)
   })
 
   it('deletes the head branch after merging when requested', async () => {

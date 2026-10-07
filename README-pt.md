@@ -98,7 +98,7 @@ Todos os ajustes são campos `Config` do Schemastery (modificáveis a partir do 
 |---|---|---|
 | `tokenSource` | `auto` | `auto` (credenciais → ambiente → gh) ou um de `credentials` / `env` / `gh` |
 | `tokenRef` | `GITHUB_TOKEN` | Referência da camada de credenciais / nome da variável de ambiente |
-| `defaultOwnerRepo` | — | Fallback `owner/repo` quando uma chamada não nomeia nenhum e o git não tem origin |
+| `defaultOwnerRepo` | — | Fallback `owner/repo` quando uma chamada não nomeia nenhum. Em uma implantação `dsh web` a sondagem da origin do git não pode disparar — veja `workspaceDir` |
 | `autoCommit` | `false` | Se `/pr create` pode instruir o modelo a fazer commit+push primeiro |
 | `maxDiffChars` | `8000` | Limite de caracteres para diffs de PR lidos nas revisões |
 | `renderExcerptChars` | `2000` | Limite de caracteres para o trecho de diff renderizado na saída da ferramenta |
@@ -116,7 +116,7 @@ Todos os ajustes são campos `Config` do Schemastery (modificáveis a partir do 
 | `requestTimeoutMs` | `30000` | Timeout rígido por requisição; aborta o fetch ao exceder |
 | `apiBaseUrl` | `https://api.github.com` | URL base da API REST do GitHub (GitHub Enterprise) |
 | `allowedActions` | `['pr.create','pr.merge','pr.update','review.post','issue.create','issue.comment','issue.close','ci.run']` | Allowlist de ações de gravação; qualquer outra coisa é negada antes da aprovação |
-| `workspaceDir` | process cwd | Diretório de trabalho para inspeção somente leitura do git |
+| `workspaceDir` | process cwd | Diretório de trabalho para inspeção somente leitura do git. Em uma implantação `dsh web` ele é o cwd do PROCESSO DE SERVIÇO, não o checkout da sessão, então fatos derivados do git (origin, branch) e o último fallback `defaultOwnerRepo` não estão disponíveis — informe `ownerRepo` em cada chamada (opencharly/dsh-github#3) |
 | `ci` | `{ enabled: false, … }` | Seção de integração CI: bot de revisão por polling, barreira de status-check e a ferramenta de execução única `ci_run` (contém todas as chaves `ci.*`) |
 
 ## Ferramentas e superfícies

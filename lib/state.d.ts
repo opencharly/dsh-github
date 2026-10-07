@@ -61,7 +61,7 @@ export interface GithubState {
     client(token: string): GithubClient;
     /** Builds an authenticated GraphQL client for one operation. */
     graphqlClient(token: string): GithubGraphqlClient;
-    /** Resolves `owner/repo` from an explicit value, config, or git origin. */
+    /** Resolves `owner/repo` from an explicit argument, the configured default, or the workspace git origin. */
     resolveRepo(ownerRepo: string | undefined, signal?: AbortSignal): Promise<RepoResolution>;
     /** Parses `123`, `#123`, `owner/repo#123`, or a pull-request URL. */
     parsePrRef(input: string): PrRef | null;
@@ -75,6 +75,23 @@ export interface GithubState {
     rememberRecord(id: string, record: ReviewJobRecord): void;
 }
 /**
+ * The one canonical remedy text for a call that names no repository.
+ *
+ * It names ONLY remedies the caller can actually carry out from wherever the
+ * plugin runs. The former third clause — "or run inside a checkout with a GitHub
+ * origin remote" — is deliberately gone: that leg reads the git origin in the
+ * PLUGIN HOST process's cwd, which a `dsh web` deployment sets to the service's
+ * working directory rather than the session's checkout, so in that deployment the
+ * advice could never be acted on (opencharly/dsh-github#3).
+ */
+export declare const REPO_GUIDANCE = "Pass ownerRepo, or configure defaultOwnerRepo for this plugin.";
+/**
+ * The one canonical `ownerRepo` argument description shared by every repo-targeting
+ * tool (the tools themselves and the `/ci` tool), so the resolution order is stated
+ * ONCE and cannot drift between surfaces.
+ */
+export declare const OWNER_REPO_DESCRIPTION = "Repository as owner/repo. Falls back to the configured defaultOwnerRepo, then the working directory's git origin (absent in a web deployment).";
+/**
  * Create the shared plugin state. Called once per plugin instance (per
  * cordis.yml row); config hot-reload creates a fresh instance.
  * @param ctx - context holding the credentials seam and (optionally) the subagent seam.
@@ -87,7 +104,24 @@ export declare function createState(ctx: {
     credentials: CredentialProvider;
     subagents?: SubagentsService;
 }, config: Config, runGit: GitRunner, runGh: GhRunner, fetchImpl?: typeof fetch): GithubState;
-/** Resolve the target repository: explicit value → config fallback → git origin. */
+/**
+ * Resolve the target repository, in precedence order:
+ *
+ *   1. an explicit `ownerRepo` argument (the only leg a caller fully controls);
+ *   2. the configured `defaultOwnerRepo`;
+ *   3. the git origin of {@link GithubState.workspaceDir}.
+ *
+ * Leg 3 is real for a CLI/TUI session, whose cwd is the checkout. It is ABSENT in a
+ * `dsh web` deployment, where the plugin host's cwd is the SERVICE's working
+ * directory and not the session's workspace — and no host capability exposes a
+ * session's workspace root to a plugin (the injected services are exactly
+ * `['tools','commands','jobs','approval','credentials']`; see
+ * opencharly/dsh-github#3). A web deployment must therefore name the repository
+ * explicitly or configure `defaultOwnerRepo`; nothing else can resolve it there.
+ *
+ * This is why the guidance text names only legs 1 and 2, and why a call that omits
+ * `ownerRepo` and has no configured default fails LOUDLY instead of guessing.
+ */
 export declare function resolveRepo(state: GithubState, ownerRepo: string | undefined, signal?: AbortSignal): Promise<RepoResolution>;
 /** Parses PR references: `123`, `#123`, `owner/repo#123`, or a pull URL. */
 export declare function parsePrRef(input: string): PrRef | null;

@@ -98,7 +98,7 @@ Todos los ajustes son campos `Config` de Schemastery (modificables desde cordis.
 |---|---|---|
 | `tokenSource` | `auto` | `auto` (credenciales → env → gh) o uno de `credentials` / `env` / `gh` |
 | `tokenRef` | `GITHUB_TOKEN` | Referencia de la capa de credenciales / nombre de la variable de entorno |
-| `defaultOwnerRepo` | — | `owner/repo` de respaldo cuando una llamada no indica ninguno y git no tiene origen |
+| `defaultOwnerRepo` | — | `owner/repo` de respaldo cuando una llamada no indica ninguno. En un despliegue `dsh web` el sondeo del origen git no puede dispararse — ver `workspaceDir` |
 | `autoCommit` | `false` | Si `/pr create` puede indicar al modelo que haga commit+push primero |
 | `maxDiffChars` | `8000` | Límite de caracteres para los diffs de PR leídos en las revisiones |
 | `renderExcerptChars` | `2000` | Límite de caracteres para el extracto de diff representado en la salida de la herramienta |
@@ -116,7 +116,7 @@ Todos los ajustes son campos `Config` de Schemastery (modificables desde cordis.
 | `requestTimeoutMs` | `30000` | Tiempo máximo por solicitud; aborta el fetch al superarse |
 | `apiBaseUrl` | `https://api.github.com` | URL base de la API REST de GitHub (GitHub Enterprise) |
 | `allowedActions` | `['pr.create','pr.merge','pr.update','review.post','issue.create','issue.comment','issue.close','ci.run']` | Lista blanca de acciones de escritura; cualquier otra se deniega antes de la aprobación |
-| `workspaceDir` | process cwd | Directorio de trabajo para la inspección de git de solo lectura |
+| `workspaceDir` | process cwd | Directorio de trabajo para la inspección de git de solo lectura. Un despliegue `dsh web` lo fija al cwd del PROCESO DE SERVICIO, no al checkout de la sesión, así que los datos derivados de git (origen, rama) y el último recurso `defaultOwnerRepo` no están disponibles — pasa `ownerRepo` en cada llamada (opencharly/dsh-github#3) |
 | `ci` | `{ enabled: false, … }` | Sección de integración CI: bot de revisión por sondeo, puerta de status-check y la herramienta de un solo uso `ci_run` (contiene todas las claves `ci.*`) |
 
 ## Herramientas y superficies
