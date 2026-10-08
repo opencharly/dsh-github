@@ -63,7 +63,10 @@ export interface GithubState {
   resolveRepo(ownerRepo: string | undefined, signal?: AbortSignal, agent?: SessionCwdSource): Promise<RepoResolution>
   /** Parses `123`, `#123`, `owner/repo#123`, or a pull-request URL. */
   parsePrRef(input: string): PrRef | null
-  /** Working directory for git inspection. */
+  /** Process-cwd fallback for git inspection and CI report output. Read by
+   *  `reportDirectory` (the CI report landing dir) and as the last resort of
+   *  {@link workspaceDirFor}; the git-inspection paths use `workspaceDirFor`, which
+   *  prefers the caller session's cwd (see `resolveRepo`). */
   workspaceDir: string
   /** Hostname of the configured REST API base, for origin-URL matching. */
   apiHost: string

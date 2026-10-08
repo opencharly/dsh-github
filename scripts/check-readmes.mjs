@@ -72,7 +72,7 @@ for (const file of FILES) {
     continue
   }
   const text = readFileSync(file, 'utf8')
-  const headings = text.split('\n').filter(line => /^## /.test(line)).map(line => line.slice(3))
+  const headings = text.split('\n').filter(line => line.startsWith('## ')).map(line => line.slice(3))
   const anchors = [...text.matchAll(/\]\(#([^)]+)\)/g)].map(match => decodeURIComponent(match[1]))
   const broken = anchors.filter(anchor => !headings.some(heading => slug(heading) === anchor))
   const unreferenced = headings.filter(heading => !isTocHeading(heading) && !anchors.includes(slug(heading)))
