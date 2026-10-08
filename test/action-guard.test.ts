@@ -75,6 +75,30 @@ describe('action-patch.mjs local guard', () => {
     expect(readFileSync(join(outputDir, 'dsh-github-ci.cordis.yml'), 'utf8')).toContain('dsh-github CI overlay')
     expect(readFileSync(join(outputDir, 'task.txt'), 'utf8')).toContain('CI reporter')
   })
+
+  // The `post-check` input (action.yml) must reach the plugin's `ci.postCheck` config.
+  // It was read into a local but never emitted into the overlay, so the input was
+  // silently ignored: `post-check: false` still published the status check. This
+  // FAILS without the emitter line (the overlay carried no `postCheck:` key).
+  it('forwards the post-check input into the overlay ci.postCheck', () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'dsh-github-guard-postcheck-'))
+    sandboxes.push(sandbox)
+    const outputDir = join(sandbox, 'output')
+    const result = runScript(patchScript, {
+      ...localEnv(),
+      RUNNER_TEMP: sandbox,
+      GITHUB_WORKSPACE: join(sandbox, 'workspace'),
+      INPUT_OUTPUT_DIR: outputDir,
+      INPUT_TASK: 'report',
+      INPUT_OWNER_REPO: 'o/r',
+      INPUT_POST_CHECK: 'false',
+      INPUT_POST_COMMENTS: 'false',
+    })
+    expect(result.status).toBe(0)
+    const overlay = readFileSync(join(outputDir, 'dsh-github-ci.cordis.yml'), 'utf8')
+    expect(overlay).toContain('postCheck: false')
+    expect(overlay).toContain('postComments: false')
+  })
 })
 
 describe('action-post.mjs local guard', () => {

@@ -508,7 +508,7 @@ export interface RepoValue {
 
 /** Pending card for gh_repo. */
 export function ghRepoCall(args: GhRepoArgs): ToolCallView {
-  return { card: 'generic', title: `Repository metadata${args.ownerRepo !== undefined ? `: ${args.ownerRepo}` : ''}`, rawInput: { ...args.ownerRepo !== undefined ? { ownerRepo: args.ownerRepo } : {} } }
+  return { card: 'generic', title: `Repository metadata${args.ownerRepo !== undefined ? `: ${args.ownerRepo}` : ''}`, rawInput: args.ownerRepo !== undefined ? { ownerRepo: args.ownerRepo } : {} }
 }
 
 /** Completed card for gh_repo. */

@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadPlugin, makeServices, stubFetch, jsonResponse, textResponse, TOKEN, MockAgent } from './helpers.ts'
-import { analyzePr, globToRegExp, matchesAnyGlob } from '../src/ci/review-rules.ts'
+import { analyzePr, globToRegExp } from '../src/ci/review-rules.ts'
 import { formatMarkdownReport, hasReviewMarker, reviewMarker, verdictFor } from '../src/ci/pipeline.ts'
 import type { CiConfig } from '../src/config.ts'
 import { Config } from '../src/config.ts'
@@ -88,11 +88,11 @@ function ciRoutes(options: CiRoutesOptions = {}) {
       respond: () => jsonResponse(200, options.reviews ?? []),
     },
     {
-      match: (m: string, u: URL, init?: RequestInit) => m === 'POST' && u.pathname === '/repos/o/r/pulls/7/reviews',
+      match: (m: string, u: URL) => m === 'POST' && u.pathname === '/repos/o/r/pulls/7/reviews',
       respond: (init?: RequestInit) => { capture(init, '/repos/o/r/pulls/7/reviews'); return jsonResponse(200, { id: 7, html_url: 'https://github.com/o/r/pull/7#pullrequestreview-7' }) },
     },
     {
-      match: (m: string, u: URL, init?: RequestInit) => m === 'POST' && u.pathname === `/repos/o/r/commits/${SHA}/check-runs`,
+      match: (m: string, u: URL) => m === 'POST' && u.pathname === `/repos/o/r/commits/${SHA}/check-runs`,
       respond: (init?: RequestInit) => { capture(init, `/repos/o/r/commits/${SHA}/check-runs`); return jsonResponse(201, { id: 9, html_url: 'https://github.com/o/r/runs/9' }) },
     },
     ...(options.openPulls !== undefined ? [{
@@ -243,7 +243,7 @@ describe('ci_run tool (pipeline)', () => {
     expect(value.review).toMatchObject({ inlineComments: 0 })
     const reviewPost = posts.find(post => post.url === '/repos/o/r/pulls/7/reviews')
     expect(reviewPost).toBeDefined()
-    expect((reviewPost?.body as { body: string }).body.startsWith(reviewMarker(SHA))).toBe(true)
+    expect((reviewPost?.body as { body: string } | undefined)?.body?.startsWith(reviewMarker(SHA))).toBe(true)
     expect(posts.some(post => post.url === `/repos/o/r/commits/${SHA}/check-runs`)).toBe(true)
     const jsonPath = join(reportDir, 'dsh-github-ci-result.json')
     const mdPath = join(reportDir, 'dsh-github-ci-summary.md')
@@ -300,7 +300,7 @@ describe('ci_run tool (pipeline)', () => {
     }) as Record<string, unknown>
     expect(value.verdict).toBe('needs-changes')
     const reviewPost = posts.find(post => post.url === '/repos/o/r/pulls/7/reviews')
-    expect((reviewPost?.body as { body: string }).body).toContain('Reviewed: the flag wiring looks correct.')
+    expect((reviewPost?.body as { body: string } | undefined)?.body).toContain('Reviewed: the flag wiring looks correct.')
     const findings = value.findings as Array<{ rule: string }>
     expect(findings.some(finding => finding.rule === 'model-finding')).toBe(true)
   })
