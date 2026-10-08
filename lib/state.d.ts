@@ -61,8 +61,10 @@ export interface GithubState {
     client(token: string): GithubClient;
     /** Builds an authenticated GraphQL client for one operation. */
     graphqlClient(token: string): GithubGraphqlClient;
-    /** Resolves `owner/repo` from an explicit value, config, or git origin. */
-    resolveRepo(ownerRepo: string | undefined, signal?: AbortSignal): Promise<RepoResolution>;
+    /** Resolves `owner/repo` from an explicit value, config, or git origin. The
+     *  optional `agent` supplies the calling session's cwd for the git-origin fallback
+     *  (a service process's own cwd is not the session's workspace — dsh-github#3). */
+    resolveRepo(ownerRepo: string | undefined, signal?: AbortSignal, agent?: SessionCwdSource): Promise<RepoResolution>;
     /** Parses `123`, `#123`, `owner/repo#123`, or a pull-request URL. */
     parsePrRef(input: string): PrRef | null;
     /** Working directory for git inspection. */
@@ -88,7 +90,35 @@ export declare function createState(ctx: {
     subagents?: SubagentsService;
 }, config: Config, runGit: GitRunner, runGh: GhRunner, fetchImpl?: typeof fetch): GithubState;
 /** Resolve the target repository: explicit value → config fallback → git origin. */
-export declare function resolveRepo(state: GithubState, ownerRepo: string | undefined, signal?: AbortSignal): Promise<RepoResolution>;
+export declare function resolveRepo(state: GithubState, ownerRepo: string | undefined, signal?: AbortSignal, agent?: SessionCwdSource): Promise<RepoResolution>;
+/**
+ * Structural view of the caller whose session carries the creation cwd. The host
+ * stamps `session.header.cwd` at session creation (an absolute path); a tool call
+ * carries its agent on `exec.agent`, a command its agent on `invocation.agent`.
+ */
+export interface SessionCwdSource {
+    readonly session?: {
+        readonly header?: {
+            readonly cwd?: string;
+        };
+    };
+}
+/**
+ * The working directory for git inspection, in precedence order:
+ *
+ *  1. the operator's explicit `config.workspaceDir` override (when non-empty);
+ *  2. the CALLING SESSION's creation cwd (`agent.session.header.cwd`) — the
+ *     directory the user actually opened the session in; else
+ *  3. the plugin process's cwd.
+ *
+ * Why (2) exists: a `dsh web` deployment runs as a SERVICE whose process cwd is
+ * the service's working directory, NOT the session's workspace. With only
+ * `process.cwd()`, `resolveRepo`'s git-origin fallback ran in `$HOME` (not a
+ * checkout), threw, and was swallowed — so every `gh_*` call that omitted
+ * `ownerRepo` failed with "could not determine the target repository"
+ * (opencharly/dsh-github#3). The session cwd is the correct anchor.
+ */
+export declare function workspaceDirFor(config: Pick<Config, 'workspaceDir'>, agent?: SessionCwdSource): string;
 /** Parses PR references: `123`, `#123`, `owner/repo#123`, or a pull URL. */
 export declare function parsePrRef(input: string): PrRef | null;
 /** Shared shape of rate-limit facts on tool results. */

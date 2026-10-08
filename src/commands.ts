@@ -16,7 +16,7 @@ import type {} from './message-source.ts'
 import { readGitState } from './git.ts'
 import { startReviewJob } from './jobs.ts'
 import type { CommandDefinition, CommandInvocation, CommandResult, CommandsService, GithubAgent, GithubJobId, JobRegistry } from './types.ts'
-import type { GithubState } from './state.ts'
+import { workspaceDirFor, type GithubState } from './state.ts'
 
 const USAGE_PR = 'Usage: /pr create [title]'
 const USAGE_REVIEW = 'Usage: /review <pr> [--max-diff <n>] [--no-ci] [--no-comments] | /review stop <jobId> | /review post <jobId>'
@@ -50,7 +50,7 @@ export function registerPrCommand(commands: CommandsService, state: GithubState)
 
 /** Gather git state and queue a pr_create instruction for the model. */
 async function createPrDraft(invocation: CommandInvocation, title: string, state: GithubState): Promise<CommandResult> {
-  const git = await readGitState(state.workspaceDir, state.runGit, invocation.signal, state.apiHost)
+  const git = await readGitState(workspaceDirFor(state.config, invocation.agent), state.runGit, invocation.signal, state.apiHost)
   if (git.error !== undefined) {
     return { kind: 'error', text: `could not read git state: ${git.error}. Run /pr create inside a git checkout.` }
   }
@@ -165,7 +165,7 @@ async function startReview(invocation: CommandInvocation, input: string, jobs: J
   if (ref === null) {
     return { kind: 'error', text: `"${parsed.pr}" is not a PR reference. Use a number, "#number", "owner/repo#number", or a pull URL.` }
   }
-  const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, invocation.signal)
+  const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, invocation.signal, invocation.agent)
   if (!repoResult.ok) return { kind: 'error', text: `${repoResult.message}. ${repoResult.guidance}` }
 
   let jobId: string
@@ -205,7 +205,7 @@ export function registerIssueCommand(commands: CommandsService, state: GithubSta
       if (!input.startsWith('open ')) return { kind: 'error', text: `unknown /issue subcommand. ${USAGE_ISSUE}` }
       const title = input.slice('open '.length).trim()
       if (title.length === 0) return { kind: 'error', text: USAGE_ISSUE }
-      const repoResult = await state.resolveRepo(undefined, invocation.signal)
+      const repoResult = await state.resolveRepo(undefined, invocation.signal, invocation.agent)
       if (!repoResult.ok) return { kind: 'error', text: `${repoResult.message}. ${repoResult.guidance}` }
       notify(invocation.agent,
         `The user ran /issue open "${title}". Create the issue by calling the issue_open tool with `

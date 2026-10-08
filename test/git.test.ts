@@ -30,4 +30,16 @@ describe('repoFromRemoteUrl', () => {
     expect(repoFromRemoteUrl('')).toBeNull()
     expect(repoFromRemoteUrl('https://example.com')).toBeNull()
   })
+
+  // opencharly/dsh-github#3: public GitHub's REST base is `api.github.com` while its
+  // git origins are `github.com` — the same provider under an `api.`-prefixed API
+  // endpoint. A strict equality rejected every github.com origin, so the git-origin
+  // fallback could never fire. The strip must accept the provider host but still
+  // reject an unrelated one.
+  it('accepts the provider host when apiHost carries an api. prefix (public GitHub)', () => {
+    expect(repoFromRemoteUrl('https://github.com/o/r.git', 'api.github.com')).toBe('o/r')
+    expect(repoFromRemoteUrl('git@github.com:o/r.git', 'api.github.com')).toBe('o/r')
+    expect(repoFromRemoteUrl('https://api.github.com/o/r.git', 'api.github.com')).toBe('o/r')
+    expect(repoFromRemoteUrl('https://gitlab.com/o/r.git', 'api.github.com')).toBeNull()
+  })
 })

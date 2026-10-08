@@ -119,7 +119,7 @@ All tunables are Schemastery `Config` fields (changeable from cordis.yml). An id
 | `requestTimeoutMs` | `30000` | Hard per-request timeout; aborts the fetch when exceeded |
 | `apiBaseUrl` | `https://api.github.com` | GitHub REST base URL (GitHub Enterprise) |
 | `allowedActions` | `['pr.create','pr.merge','pr.update','review.post','issue.create','issue.comment','issue.close','ci.run']` | Write-action whitelist; anything else is denied before approval |
-| `workspaceDir` | process cwd | Working directory for read-only git inspection |
+| `workspaceDir` | the calling session's cwd, else process cwd | Working directory for read-only git inspection. When unset, the session creation cwd (`agent.session.header.cwd`) is used — required for a `dsh web` service, whose process cwd is not the session's workspace (see below) |
 | `ci` | `{ enabled: false, … }` | CI integration section: polling review bot, status-check gate, and the one-shot `ci_run` tool (all `ci.*` keys live inside it) |
 
 ## Tools & surfaces
@@ -153,6 +153,9 @@ All tunables are Schemastery `Config` fields (changeable from cordis.yml). An id
 - **Approval gate.** All writes flow through model tools. A `tools/pre-execute` waterfall listener returns `ask` for the write tools, so the registry asks the human through `ctx.approval` (the host logs the `approval/asked` + `approval/decided` audit pair) and fails closed without an answerer. Commands never write directly: a write command gathers read-only context, then wakes the agent so the model runs the gated tool inside a turn.
 - **Background review job.** `/review <pr>` starts a `github-review` job on `ctx.jobs`; the job fetches metadata (capturing the head-commit SHA for inline posting), the capped diff, CI checks, and existing comments, then runs the deterministic multi-file analyzer (`src/review.ts`). The job is owned by the calling agent's bare `SessionId` — `0.1.7-alpha.1` fences the registry on `SessionId` with no `Agent` union — so `dsh-tool-jobs` must be composed or `start` refuses. With `reviewMode: "model"`, the job hands the capped diff to a one-shot subagent through the host's `subagents` seam. Completion reaches the session through the host's `dsh-tool-jobs` consumer; the model reads it with `job_output` and publishes it with `review_post`.
 - **CI composite action / review bot / status-check gate.** The repo ships a composite action (`action.yml`) that reviews PRs, fixes CI, and writes the report; a polling review bot posts idempotent inline comments; and a status-check gate publishes the verdict per PR head commit. The one-shot `ci_run` tool drives the headless run. Every write stays approval-gated.
+- **Repository resolution.** A `gh_*` call resolves its target repo from, in order: an explicit `ownerRepo`; `defaultOwnerRepo`; then the `origin` remote of the **calling session's** cwd (`agent.session.header.cwd`, else `workspaceDir`, else the process cwd). The git-origin step needs both a real checkout and a matching host: public GitHub's REST base is `api.github.com` while its origins are `github.com`, so the host check accepts the provider host under either form (GitHub Enterprise's single host is unaffected). Without the session cwd a `dsh web` deployment — a
+  service whose process cwd is not the session's workspace — could never resolve a repo, so
+  every `ownerRepo`-less call failed (opencharly/dsh-github#3).
 
 ## Permissions & data
 

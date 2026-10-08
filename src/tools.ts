@@ -16,7 +16,7 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { GithubError } from './github.ts'
 import { readGitState } from './git.ts'
 import { analyzeDiff, formatPostBody, parseDiffStats, type Finding } from './review.ts'
-import { rateLimitValue, type GithubState, type RateLimitValue } from './state.ts'
+import { rateLimitValue, workspaceDirFor, type GithubState, type RateLimitValue } from './state.ts'
 import {
   ghFileCall, ghFileResult, ghIssueCall, ghIssueResult, ghRepoCall, ghRepoResult,
   ghReviewCall, ghReviewResult, ghSearchCall, ghSearchResult,
@@ -195,12 +195,12 @@ export function prCreateTool(state: GithubState) {
     presentResult: prCreateResult,
     async execute(args, exec) {
       if (args.title.trim().length === 0) return errorValue('invalid-args', 'title must not be empty')
-      const repo = await state.resolveRepo(args.ownerRepo, exec.signal)
+      const repo = await state.resolveRepo(args.ownerRepo, exec.signal, exec.agent)
       if (!repo.ok) return errorValue(repo.code, repo.message, repo.guidance)
 
       let head = args.head?.trim()
       if (head === undefined || head.length === 0) {
-        const git = await readGitState(state.workspaceDir, state.runGit, exec.signal, state.apiHost)
+        const git = await readGitState(workspaceDirFor(state.config, exec.agent), state.runGit, exec.signal, state.apiHost)
         if (git.branch === null) return errorValue('no-head', 'could not determine the head branch', 'Pass `head` explicitly or run inside a git checkout.')
         if (git.branch === 'HEAD') {
           return errorValue('no-head', 'the checkout is in detached HEAD state', 'Check out a branch (or pass `head` explicitly) before creating a pull request.')
@@ -384,7 +384,7 @@ export function ghReviewTool(state: GithubState) {
     async execute(args, exec) {
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal, exec.agent)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
 
       const token = await state.resolveToken(exec.signal)
@@ -671,7 +671,7 @@ export function ghIssueTool(state: GithubState) {
       if ((args.action === 'get' || args.action === 'comments') && args.issueNumber === undefined) {
         return errorValue('invalid-args', `action "${args.action}" requires issueNumber`)
       }
-      const repoResult = await state.resolveRepo(args.ownerRepo, exec.signal)
+      const repoResult = await state.resolveRepo(args.ownerRepo, exec.signal, exec.agent)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)
@@ -775,7 +775,7 @@ export function issueOpenTool(state: GithubState) {
     presentResult: issueOpenResult,
     async execute(args, exec) {
       if (args.title.trim().length === 0) return errorValue('invalid-args', 'title must not be empty')
-      const repo = await state.resolveRepo(args.ownerRepo, exec.signal)
+      const repo = await state.resolveRepo(args.ownerRepo, exec.signal, exec.agent)
       if (!repo.ok) return errorValue(repo.code, repo.message, repo.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)
@@ -837,7 +837,7 @@ export function issueCommentTool(state: GithubState) {
     async execute(args, exec) {
       const body = args.body.trim()
       if (body.length === 0) return errorValue('invalid-args', 'body must not be empty')
-      const repo = await state.resolveRepo(args.ownerRepo, exec.signal)
+      const repo = await state.resolveRepo(args.ownerRepo, exec.signal, exec.agent)
       if (!repo.ok) return errorValue(repo.code, repo.message, repo.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)
@@ -891,7 +891,7 @@ export function issueCloseTool(state: GithubState) {
     presentCall: issueCloseCall,
     presentResult: issueCloseResult,
     async execute(args, exec) {
-      const repo = await state.resolveRepo(args.ownerRepo, exec.signal)
+      const repo = await state.resolveRepo(args.ownerRepo, exec.signal, exec.agent)
       if (!repo.ok) return errorValue(repo.code, repo.message, repo.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)
@@ -1061,7 +1061,7 @@ export function prMergeTool(state: GithubState) {
     async execute(args, exec) {
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal, exec.agent)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
 
       const token = await state.resolveToken(exec.signal)
@@ -1168,7 +1168,7 @@ export function prUpdateTool(state: GithubState) {
       }
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal, exec.agent)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
 
       const token = await state.resolveToken(exec.signal)
@@ -1251,7 +1251,7 @@ export function ghRepoTool(state: GithubState) {
     presentCall: ghRepoCall,
     presentResult: ghRepoResult,
     async execute(args, exec) {
-      const repoResult = await state.resolveRepo(args.ownerRepo, exec.signal)
+      const repoResult = await state.resolveRepo(args.ownerRepo, exec.signal, exec.agent)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)
@@ -1351,7 +1351,7 @@ export function ghFileTool(state: GithubState) {
     async execute(args, exec) {
       const path = args.path.trim()
       if (path.length === 0 || path.startsWith('/')) return errorValue('invalid-args', 'path must be a non-empty repository-relative file path')
-      const repoResult = await state.resolveRepo(args.ownerRepo, exec.signal)
+      const repoResult = await state.resolveRepo(args.ownerRepo, exec.signal, exec.agent)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)
@@ -1577,7 +1577,7 @@ export function ghChecksTool(state: GithubState) {
     async execute(args, exec) {
       const ref = state.parsePrRef(args.pr)
       if (ref === null) return errorValue('invalid-pr', `"${args.pr}" is not a PR reference`, 'Use a number, "#number", "owner/repo#number", or a pull URL.')
-      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal)
+      const repoResult = ref.repo !== undefined ? { ok: true as const, repo: ref.repo } : await state.resolveRepo(undefined, exec.signal, exec.agent)
       if (!repoResult.ok) return errorValue(repoResult.code, repoResult.message, repoResult.guidance)
       const token = await state.resolveToken(exec.signal)
       if (!token.ok) return errorValue(token.error.code, token.error.message, token.error.guidance)
