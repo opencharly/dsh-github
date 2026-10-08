@@ -102,7 +102,9 @@ export function createSnapshotStore<T>(init: T): SnapshotStore<T> {
     },
     set: (next) => {
       state = next
-      for (const listener of [...listeners]) listener()
+      // Snapshot before notifying: a listener may subscribe/unsubscribe during the
+      // emit, and iterating the live Set would then skip or double-visit entries.
+      for (const listener of Array.from(listeners)) listener()
     },
   }
 }
