@@ -88,7 +88,6 @@ export function registrationBanner(id) {
     `window.__ModuleLoader__.load({ id: ${JSON.stringify(id)}, factory: (require) => {`,
     '"use strict";',
     'var module = { exports: {} };',
-    'var exports = module.exports;',
   ].join('\n')
 }
 
