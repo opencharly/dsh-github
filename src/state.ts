@@ -140,18 +140,24 @@ export function createState(ctx: { credentials: CredentialProvider; subagents?: 
  *
  *   1. an explicit `ownerRepo` argument (the only leg a caller fully controls);
  *   2. the configured `defaultOwnerRepo`;
- *   3. the git origin of {@link GithubState.workspaceDir}.
+ *   3. the git origin of the session's own working directory, when the caller can supply it;
+ *   4. the git origin of {@link GithubState.workspaceDir}.
  *
- * Leg 3 is real for a CLI/TUI session, whose cwd is the checkout. It is ABSENT in a
- * `dsh web` deployment, where the plugin host's cwd is the SERVICE's working
- * directory and not the session's workspace — and no host capability exposes a
- * session's workspace root to a plugin (the injected services are exactly
- * `['tools','commands','jobs','approval','credentials']`; see
- * opencharly/dsh-github#3). A web deployment must therefore name the repository
- * explicitly or configure `defaultOwnerRepo`; nothing else can resolve it there.
+ * Leg 3 is real for a CLI/TUI session, whose cwd is the checkout, and it is ALSO reachable in a
+ * `dsh web` deployment — this comment used to say the opposite and was wrong. The host exposes the
+ * session's cwd on the TOOL-EXECUTION context as `exec.agent?.session.header.cwd`, and its own tools
+ * read exactly that field (`@deepseek-ai/dsh-tool-fs`, `dsh-tool-bash`, `dsh-tool-fs-search`,
+ * `dsh-tool-pwsh`). The earlier search that "proved" no such capability existed grepped for
+ * `workspace`; the host spells the field `cwd`, which is how a strong negative claim was drawn from a
+ * search that could not have found it. Corrected by `atrawog` on opencharly/dsh-github#4, whose
+ * measurement this comment now records.
  *
- * This is why the guidance text names only legs 1 and 2, and why a call that omits
- * `ownerRepo` and has no configured default fails LOUDLY instead of guessing.
+ * Leg 4 is what remains for a `dsh web` deployment that reaches this function WITHOUT a tool
+ * execution context: there the plugin host's cwd is the SERVICE's working directory, not the
+ * session's. `GithubState` therefore keeps `workspaceDir` as a fallback rather than as the answer.
+ *
+ * This is also why a call that omits `ownerRepo` and has no configured default still fails LOUDLY
+ * instead of guessing.
  */
 export async function resolveRepo(state: GithubState, ownerRepo: string | undefined, signal?: AbortSignal): Promise<RepoResolution> {
   const candidate = ownerRepo?.trim()
